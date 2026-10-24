@@ -102,6 +102,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   week-long wait it says instead that the item was not moved because syncing for the old list is
   off, and that it shows up there again once that list is switched on. Tapping it opens that list.
   Nobody else gets it, and household channels never do.
+- **Secrets can be read from files (`<NAME>_FILE`).** `SESSION_SECRET`, `DB_ENCRYPTION_KEY` and the
+  other secrets (client secrets, passwords, API keys) can now come from a file instead of an
+  environment variable: set `SESSION_SECRET_FILE=/run/secrets/session_secret` and the content of that
+  file is used, the same convention as the official postgres and mysql images. That keeps the value
+  out of `.env`, the compose file and `docker inspect`, and works with Docker and Podman secrets or a
+  Vault Agent without a wrapper around the entrypoint. Setting both `<NAME>` and `<NAME>_FILE` stops
+  the start, and so does a missing or empty file: falling back would be harmful for
+  `DB_ENCRYPTION_KEY`, where the app would otherwise start on a new, unencrypted database. Only line
+  breaks at the end of the file are removed. The list of supported names is in the environment
+  variables reference.
 - **Google Calendar explains its own setup instead of stopping at "Not configured"** (#2221). An admin
   whose server has no Google credentials yet used to see only "Not configured (missing .env
   variables)", twice. The Google card now names the variables that are still missing, shows the

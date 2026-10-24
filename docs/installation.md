@@ -551,6 +551,32 @@ Generate a secure `SESSION_SECRET`:
 openssl rand -hex 32
 ```
 
+### Secrets from Files (Optional)
+
+Instead of putting a secret into `.env` or an environment variable, point `<NAME>_FILE` at a file that holds it. The content of the file is used as the value of `<NAME>`, the same convention as the official postgres and mysql images. This fits Docker and Podman secrets, a Vault Agent, or any mounted secret file.
+
+Supported names: `SESSION_SECRET`, `DB_ENCRYPTION_KEY`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_DRIVE_CLIENT_SECRET`, `MS_CLIENT_SECRET`, `OIDC_CLIENT_SECRET`, `APPLE_APP_SPECIFIC_PASSWORD`, `OPENWEATHER_API_KEY`, `FIXER_API_KEY`, `WEBDAV_BACKUP_PASSWORD`, `DOCUMENT_STORAGE_WEBDAV_PASSWORD`, `VAPID_PRIVATE_KEY`, `EMAIL_SMTP_PASS` and `IMMICH_API_KEY`. Each takes a `_FILE` variant, for example `SESSION_SECRET_FILE`.
+
+```yaml
+services:
+  yuvomi:
+    environment:
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+      DB_ENCRYPTION_KEY_FILE: /run/secrets/db_encryption_key
+    secrets: [session_secret, db_encryption_key]
+
+secrets:
+  session_secret:
+    file: ./secrets/session_secret
+  db_encryption_key:
+    file: ./secrets/db_encryption_key
+```
+
+- Set either `<NAME>` or `<NAME>_FILE`, not both: the start stops with a message naming the variable.
+- A missing, unreadable or empty file stops the start. There is no silent fallback, because for `DB_ENCRYPTION_KEY` that would start on a new, unencrypted database.
+- Line breaks at the end of the file are ignored; everything else, spaces included, belongs to the value. Write the file with `printf '%s' "$(openssl rand -hex 32)" > secrets/db_encryption_key` and keep a copy of the database key elsewhere: it cannot be recovered or changed on an existing database.
+- Remove the matching `<NAME>=` lines from `.env`.
+
 ### Web Push (Optional)
 
 Push notifications deliver due reminders to a device as system notifications even when the app
