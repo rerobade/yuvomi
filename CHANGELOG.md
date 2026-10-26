@@ -110,8 +110,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Vault Agent without a wrapper around the entrypoint. Setting both `<NAME>` and `<NAME>_FILE` stops
   the start, and so does a missing or empty file: falling back would be harmful for
   `DB_ENCRYPTION_KEY`, where the app would otherwise start on a new, unencrypted database. Only line
-  breaks at the end of the file are removed. The list of supported names is in the environment
-  variables reference.
+  breaks at the end of the file are removed. The app reads the file as the user it runs as - uid
+  1000 in the image, 568 on TrueNAS - not as root, so the file needs that owner and mode `600`. The
+  list of supported names and how to create the file are in the environment variables reference.
 - **Google Calendar explains its own setup instead of stopping at "Not configured"** (#2221). An admin
   whose server has no Google credentials yet used to see only "Not configured (missing .env
   variables)", twice. The Google card now names the variables that are still missing, shows the

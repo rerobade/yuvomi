@@ -12,6 +12,8 @@
  *          - die Meldungen nennen den Namen, nie den Wert
  *          - Kopplung an .env.example: jedes dort eingetragene Secret ist in der Liste
  *          - der Handschlag beendet den Prozess mit Code 1, wenn ein Secret nicht lädt
+ *          - der Handschlag ist der erste Import in server/index.js und steht in
+ *            setup.js vor server/db.js
  * Ausführen: node --test test/test-file-secrets.js
  */
 import test from 'node:test';
@@ -137,4 +139,25 @@ test('der Start-Handschlag lädt das Secret und beendet sich bei einem Fehler mi
   assert.equal(bad.status, 1);
   assert.ok(!bad.stdout.includes('geladen'));
   assert.match(bad.stdout + bad.stderr, /SESSION_SECRET_FILE points to/);
+});
+
+// ES-Module werden in Import-Reihenfolge ausgewertet. Rutscht der Handschlag
+// unter server/db.js, liest db.js DB_ENCRYPTION_KEY als nicht gesetzt und öffnet
+// still eine unverschlüsselte Datenbank - genau der Rückfall, den das Modul
+// verhindern soll. Die Tests oben bemerken das nicht, sie laden den Handschlag allein.
+function importSpecifiers(relPath) {
+  const source = readFileSync(fileURLToPath(new URL(relPath, import.meta.url)), 'utf8');
+  return [...source.matchAll(/^import\s(?:[^'";]*?\sfrom\s)?['"]([^'"]+)['"]/gm)].map((m) => m[1]);
+}
+
+test('der Handschlag ist der erste Import in server/index.js', () => {
+  assert.equal(importSpecifiers('../server/index.js')[0], './utils/load-file-secrets.js');
+});
+
+test('setup.js lädt den Handschlag vor server/db.js', () => {
+  const imports = importSpecifiers('../setup.js');
+  const loader = imports.indexOf('./server/utils/load-file-secrets.js');
+  const db = imports.indexOf('./server/db.js');
+  assert.ok(loader !== -1 && db !== -1, `beide Imports gefunden: ${imports.join(', ')}`);
+  assert.ok(loader < db, 'load-file-secrets.js steht vor server/db.js');
 });

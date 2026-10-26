@@ -574,8 +574,18 @@ secrets:
 
 - Set either `<NAME>` or `<NAME>_FILE`, not both: the start stops with a message naming the variable.
 - A missing, unreadable or empty file stops the start. There is no silent fallback, because for `DB_ENCRYPTION_KEY` that would start on a new, unencrypted database.
-- Line breaks at the end of the file are ignored; everything else, spaces included, belongs to the value. Write the file with `printf '%s' "$(openssl rand -hex 32)" > secrets/db_encryption_key` and keep a copy of the database key elsewhere: it cannot be recovered or changed on an existing database.
+- Line breaks at the end of the file are ignored; everything else, spaces included, belongs to the value. Keep a copy of the database key elsewhere: it cannot be recovered or changed on an existing database.
 - Remove the matching `<NAME>=` lines from `.env`.
+
+**File permissions.** The file is read by the user the app runs as, not by root: the image's entrypoint switches to `node` (uid 1000) before the server starts, and TrueNAS starts the container as uid 568 from the outset. This differs from the postgres image, which reads its secret files as root. A file that belongs to root with mode `600` therefore stops the start with `EACCES`. With Docker Compose the secret is a bind mount that keeps the owner and mode from the host, so create the file under `umask 077` and hand it to that uid:
+
+```bash
+mkdir -p secrets
+(umask 077; printf '%s' "$(openssl rand -hex 32)" > secrets/db_encryption_key)
+sudo chown 1000:1000 secrets/db_encryption_key   # 568:568 on TrueNAS
+```
+
+Without `umask 077`, a plain `printf ... >` creates a file every user on the host can read. Podman mounts its secrets read-only and readable inside the container, so there is nothing to change there.
 
 ### Web Push (Optional)
 
