@@ -12,17 +12,20 @@
  *          - die Meldungen nennen den Namen, nie den Wert
  *          - Kopplung an .env.example: jedes dort eingetragene Secret ist in der Liste
  *          - der Handschlag beendet den Prozess mit Code 1, wenn ein Secret nicht lädt
+ *          - eine Datei, die andere lesen dürfen und die nicht schreibgeschützt ist
+ *            (0644 aus `printf ... >`), gibt eine Warnung; 0600, 0440 und 0444
+ *            (Podman/Swarm) nicht
  *          - der Handschlag ist der erste Import in server/index.js und steht in
  *            setup.js vor server/db.js
  * Ausführen: node --test test/test-file-secrets.js
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync, readFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { applyFileSecrets, FILE_SECRET_VARS } from '../server/utils/file-secrets.js';
+import { applyFileSecrets, looseSecretFiles, FILE_SECRET_VARS } from '../server/utils/file-secrets.js';
 import { tempDir } from './tmp-dir.js';
 
 const dir = tempDir('yuvomi-file-secrets-');
@@ -139,6 +142,48 @@ test('der Start-Handschlag lädt das Secret und beendet sich bei einem Fehler mi
   assert.equal(bad.status, 1);
   assert.ok(!bad.stdout.includes('geladen'));
   assert.match(bad.stdout + bad.stderr, /SESSION_SECRET_FILE points to/);
+});
+
+test('eine Datei, die andere lesen dürfen, gibt eine Warnung ohne Wert', () => {
+  for (const [mode, warns] of [
+    [0o600, false],
+    [0o400, false],
+    [0o440, false],
+    [0o444, false], // Podman, Swarm: schreibgeschützt eingehängt
+    [0o644, true],  // printf ... > mit umask 022
+    [0o640, true],
+    [0o660, true],
+    [0o666, true],
+  ]) {
+    const p = secretFile(`m${mode.toString(8)}`, 'geheim-123');
+    chmodSync(p, mode);
+    const warnings = looseSecretFiles({ SESSION_SECRET_FILE: p });
+    assert.equal(warnings.length, warns ? 1 : 0, mode.toString(8));
+    if (warns) {
+      assert.match(warnings[0], new RegExp(`SESSION_SECRET_FILE points to .* \\(mode ${mode.toString(8)}\\)\\. Restrict it with chmod 600\\.`));
+      assert.ok(!warnings[0].includes('geheim-123'));
+    }
+  }
+});
+
+test('die Warnung prüft nur gesetzte `_FILE`-Variablen und übergeht, was sie nicht lesen kann', () => {
+  assert.deepEqual(looseSecretFiles({ SESSION_SECRET: 'x', SESSION_SECRET_FILE: '' }), []);
+  assert.deepEqual(looseSecretFiles({ DB_PATH_FILE: '/irgendwo' }, () => ({ mode: 0o100666 })), []);
+  const fail = () => { throw Object.assign(new Error('nope'), { code: 'EACCES' }); };
+  assert.deepEqual(looseSecretFiles({ SESSION_SECRET_FILE: '/x' }, fail), []);
+});
+
+test('der Start-Handschlag warnt bei 0644 und startet trotzdem', () => {
+  const loader = fileURLToPath(new URL('../server/utils/load-file-secrets.js', import.meta.url));
+  const p = secretFile('i', 'locker\n');
+  chmodSync(p, 0o644);
+  const res = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(loader)});`], {
+    env: { PATH: process.env.PATH, LOG_LEVEL: 'warn', SESSION_SECRET_FILE: p },
+    encoding: 'utf8',
+  });
+  assert.equal(res.status, 0);
+  assert.match(res.stdout + res.stderr, /SESSION_SECRET_FILE points to .*other users can read \(mode 644\)/);
+  assert.ok(!(res.stdout + res.stderr).includes('locker'));
 });
 
 // ES-Module werden in Import-Reihenfolge ausgewertet. Rutscht der Handschlag

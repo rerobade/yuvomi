@@ -6,7 +6,7 @@
  *        DB_ENCRYPTION_KEY und SESSION_SECRET beim Laden aus process.env lesen.
  *        Siehe server/utils/file-secrets.js.
  */
-import { applyFileSecrets } from './file-secrets.js';
+import { applyFileSecrets, looseSecretFiles } from './file-secrets.js';
 import { createLogger } from '../logger.js';
 
 const log = createLogger('Secrets');
@@ -14,6 +14,7 @@ const log = createLogger('Secrets');
 try {
   const loaded = applyFileSecrets();
   if (loaded.length > 0) log.info(`Loaded from files: ${loaded.join(', ')}`);
+  for (const warning of looseSecretFiles()) log.warn(warning);
 } catch (err) {
   log.error(err.message);
   process.exit(1);

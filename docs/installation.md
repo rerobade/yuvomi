@@ -585,7 +585,7 @@ mkdir -p secrets
 sudo chown 1000:1000 secrets/db_encryption_key   # 568:568 on TrueNAS
 ```
 
-Without `umask 077`, a plain `printf ... >` creates a file every user on the host can read. Podman mounts its secrets read-only and readable inside the container, so there is nothing to change there.
+Without `umask 077`, a plain `printf ... >` creates a file every user on the host can read; the start then logs a warning naming the variable, the path and the mode. Podman and Docker Swarm mount their secrets read-only and readable (`0444`) inside the container, so there is nothing to change there and no warning. Kubernetes secret volumes default to `0644` and do get the warning: set `defaultMode: 0440` together with `fsGroup: 1000` on the pod.
 
 ### Web Push (Optional)
 
