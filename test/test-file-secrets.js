@@ -206,3 +206,9 @@ test('setup.js lädt den Handschlag vor server/db.js', () => {
   assert.ok(loader !== -1 && db !== -1, `beide Imports gefunden: ${imports.join(', ')}`);
   assert.ok(loader < db, 'load-file-secrets.js steht vor server/db.js');
 });
+
+test('das Restore-CLI laedt den Handschlag, bevor es server/db.js dynamisch importiert', () => {
+  // restore-backup.js holt db.js erst im try per `await import()`; ohne den
+  // statischen Handschlag liest es DB_ENCRYPTION_KEY_FILE nie.
+  assert.ok(importSpecifiers('../scripts/restore-backup.js').includes('../server/utils/load-file-secrets.js'));
+});

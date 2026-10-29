@@ -3,7 +3,7 @@ export const ENV_SCHEMA = [
   // zusätzlich `<NAME>_FILE` an, etwa SESSION_SECRET_FILE=/run/secrets/session_secret.
   // Der Wizard schreibt weiterhin nur `<NAME>` in die .env; die _FILE-Varianten
   // stehen deshalb nicht hier, sondern als Ausnahmen in test/test-installer-schema.js.
-  { key: 'SESSION_SECRET',             type: 'auto',    label: 'Session Secret',           required: true,  group: 'core',    writeToEnv: true },
+  { key: 'SESSION_SECRET',              type: 'auto',    label: 'Session Secret',           required: true,  group: 'core',    writeToEnv: true },
   { key: 'DB_ENCRYPTION_KEY',           type: 'auto',    label: 'Database Encryption Key',  required: true,  group: 'core',    writeToEnv: true },
   { key: 'WEATHER_LAT',                 type: 'user',    label: 'Weather Latitude',         required: false, group: 'weather', writeToEnv: true },
   { key: 'WEATHER_LON',                 type: 'user',    label: 'Weather Longitude',        required: false, group: 'weather', writeToEnv: true },
